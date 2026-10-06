@@ -24,8 +24,21 @@ never hotlink.
   - `miniflux` (default): Miniflux's fetch-content. Uses the feed's
     `scraper_rules`, `rewrite_rules`, `user_agent`, `username` and `password`,
     which are also pushed to Miniflux for polling the feed.
-  - `chrome`: headless Chromium plus readability, with optional
-    `chrome.wait_selector`, `chrome.wait` and `chrome.user_agent`.
+  - `chrome`: headless Chromium plus readability. Each page gets its own
+    window, then the feed's `chrome.steps` run in order: `wait`, `wait_for`
+    (CSS selector), `scroll = "bottom"` (a screen at a time until the page
+    stops growing, for lazy-loaded content), `click` and `remove`. Elements
+    that aren't displayed are removed before extraction unless the feed sets
+    `chrome.keep_hidden`. Try a feed's settings on any page with
+    `literss extract FEED_URL PAGE_URL`, which prints the result without
+    caching it.
+- **Ad blocking**: `chrome.extensions` loads unpacked extensions; the NixOS
+  module loads [uBlock Origin Lite](https://github.com/uBlockOrigin/uBOL-home)
+  (`nix build .#ubol`) by default, in `complete` mode (`chrome.ublock_mode`).
+  Ad requests are blocked, so ads are neither rendered nor cached, and elements
+  hidden by its cosmetic filters are dropped with the rest of the hidden ones.
+  Chromium no longer supports `--load-extension`, so literss loads extensions
+  through the DevTools pipe, from writable copies in `data_dir/chrome-extensions`.
 - **Cookies** for private feeds go in a per-feed `cookies_file`: a Netscape
   `cookies.txt` or a browser-extension JSON export. The same cookies are sent
   by Miniflux (polling and fetch-content), injected into Chromium, and used
@@ -52,7 +65,8 @@ link (with a QR code) to add a passkey on another device, remove passkeys
 (never the last one), and sign out on this device or everywhere. Sessions last
 7 days and are extended on each use.
 
-Other commands: `literss users`, `literss delete-user NAME`, `literss sync`.
+Other commands: `literss users`, `literss delete-user NAME`, `literss sync`,
+`literss extract FEED_URL PAGE_URL`.
 
 Passkeys are tied to the domain in `base_url` (`literss.ethereal.io`), so
 changing it invalidates every passkey.

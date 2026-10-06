@@ -30,6 +30,28 @@ in
       description = "Chromium used by feeds with the `chrome` extractor.";
     };
 
+    ublock = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Load uBlock Origin Lite into Chromium so ads are neither rendered nor extracted.";
+      };
+      package = lib.mkOption {
+        type = lib.types.package;
+        default = self.packages.${pkgs.stdenv.hostPlatform.system}.ubol;
+        defaultText = lib.literalExpression "literss.packages.\${system}.ubol";
+      };
+      mode = lib.mkOption {
+        type = lib.types.enum [ "basic" "optimal" "complete" ];
+        default = "complete";
+        description = ''
+          uBO Lite filtering mode. "complete" adds generic cosmetic filters,
+          whose hidden elements are removed before extraction (see the per-feed
+          `chrome.keep_hidden`).
+        '';
+      };
+    };
+
     domain = lib.mkOption {
       type = lib.types.str;
       default = "literss.ethereal.io";
@@ -103,10 +125,23 @@ in
           chrome = lib.mkOption {
             type = lib.types.submodule {
               freeformType = toml.type;
-              options.path = lib.mkOption {
-                type = lib.types.str;
-                default = lib.getExe cfg.chromium;
-                defaultText = lib.literalExpression "lib.getExe config.services.literss.chromium";
+              options = {
+                path = lib.mkOption {
+                  type = lib.types.str;
+                  default = lib.getExe cfg.chromium;
+                  defaultText = lib.literalExpression "lib.getExe config.services.literss.chromium";
+                };
+                extensions = lib.mkOption {
+                  type = lib.types.listOf lib.types.str;
+                  default = lib.optional cfg.ublock.enable "${cfg.ublock.package}";
+                  defaultText = lib.literalExpression ''lib.optional config.services.literss.ublock.enable "''${config.services.literss.ublock.package}"'';
+                  description = "Unpacked Chromium extensions to load.";
+                };
+                ublock_mode = lib.mkOption {
+                  type = lib.types.str;
+                  default = lib.optionalString cfg.ublock.enable cfg.ublock.mode;
+                  defaultText = lib.literalExpression "config.services.literss.ublock.mode";
+                };
               };
             };
             default = { };

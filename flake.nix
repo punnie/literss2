@@ -11,6 +11,7 @@
     {
       packages = forAllSystems (pkgs: rec {
         literss = pkgs.callPackage ./nix/package.nix { };
+        ubol = pkgs.callPackage ./nix/ubol.nix { };
         default = literss;
       });
 

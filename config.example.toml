@@ -21,6 +21,13 @@ timeout = "45s"
 max_concurrent = 2
 no_sandbox = false
 # user_agent = "…"
+# Unpacked extensions (copied to data_dir/chrome-extensions before loading).
+# On NixOS the module points this at uBlock Origin Lite (`nix build .#ubol`).
+extensions = ["/nix/store/…-ubol-2026.930.1227"]
+# uBO Lite filtering mode: "basic", "optimal" or "complete". "complete" also
+# applies generic cosmetic filters; elements they hide are removed before
+# extraction unless a feed sets chrome.keep_hidden.
+ublock_mode = "complete"
 
 # Rivers appear in this order; the first one is the home page.
 # Each river is a Miniflux category with the same title.
@@ -61,6 +68,19 @@ title = "Private"
   cookies_file = "/run/secrets/paywalled-cookies.txt"
 
     [rivers.feeds.chrome]
-    wait_selector = "article"
-    wait = "1s"
     # user_agent = "…"
+    # keep_hidden = false   # true keeps elements with display: none
+
+    # Steps run in order after the page loads, before extraction. Each sets
+    # exactly one of: wait, wait_for, scroll, click, remove. Try them with
+    # `literss extract FEED_URL PAGE_URL`.
+    [[rivers.feeds.chrome.steps]]
+    click = "button.cookie-accept"     # first match, if any
+    [[rivers.feeds.chrome.steps]]
+    wait_for = "article"               # CSS selector
+    [[rivers.feeds.chrome.steps]]
+    scroll = "bottom"                  # until the page stops growing (max 20s)
+    [[rivers.feeds.chrome.steps]]
+    remove = ".newsletter-signup, .related-stories"
+    [[rivers.feeds.chrome.steps]]
+    wait = "1s"

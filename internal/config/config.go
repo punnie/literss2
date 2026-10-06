@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -84,7 +85,15 @@ type Chrome struct {
 	MaxConcurrent int `toml:"max_concurrent"`
 	// Default user agent for rendered pages.
 	UserAgent string `toml:"user_agent"`
+	// Unpacked extension directories to load, e.g. uBlock Origin Lite.
+	Extensions []string `toml:"extensions"`
+	// Filtering mode for uBlock Origin Lite, if it is among the extensions:
+	// "basic", "optimal" or "complete". Empty keeps uBO Lite's default.
+	UBlockMode string `toml:"ublock_mode"`
 }
+
+// UBlockModes maps ublock_mode values to uBO Lite's filtering levels.
+var UBlockModes = map[string]int{"basic": 1, "optimal": 2, "complete": 3}
 
 type River struct {
 	Slug  string `toml:"slug"`
@@ -122,12 +131,61 @@ type Feed struct {
 }
 
 type ChromeFeed struct {
-	// CSS selector to wait for before extracting.
-	WaitSelector string `toml:"wait_selector"`
-	// Extra fixed delay after load, for pages that render late.
-	Wait Duration `toml:"wait"`
 	// Overrides chrome.user_agent for this feed.
 	UserAgent string `toml:"user_agent"`
+	// Actions run in order after the page loads, before extraction.
+	Steps []Step `toml:"steps"`
+	// Keep elements that are not displayed. By default anything with
+	// display: none is removed before extraction, which includes ads hidden
+	// by a content blocker.
+	KeepHidden bool `toml:"keep_hidden"`
+}
+
+// Step is one browser action. Exactly one field must be set.
+type Step struct {
+	// Sleep for a fixed time.
+	Wait Duration `toml:"wait"`
+	// Wait until an element matching this CSS selector exists.
+	WaitFor string `toml:"wait_for"`
+	// "bottom": scroll down a screen at a time until the page stops growing,
+	// which triggers lazy-loaded content and images.
+	Scroll string `toml:"scroll"`
+	// Click the first element matching this selector, if there is one.
+	Click string `toml:"click"`
+	// Remove every element matching this selector.
+	Remove string `toml:"remove"`
+}
+
+func (s Step) String() string {
+	switch {
+	case s.Wait.Duration > 0:
+		return "wait " + s.Wait.String()
+	case s.WaitFor != "":
+		return "wait_for " + s.WaitFor
+	case s.Scroll != "":
+		return "scroll " + s.Scroll
+	case s.Click != "":
+		return "click " + s.Click
+	case s.Remove != "":
+		return "remove " + s.Remove
+	}
+	return "empty step"
+}
+
+func (s Step) validate() error {
+	n := 0
+	for _, set := range []bool{s.Wait.Duration > 0, s.WaitFor != "", s.Scroll != "", s.Click != "", s.Remove != ""} {
+		if set {
+			n++
+		}
+	}
+	if n != 1 {
+		return errors.New("each step must set exactly one of wait, wait_for, scroll, click, remove")
+	}
+	if s.Scroll != "" && s.Scroll != "bottom" {
+		return fmt.Errorf("scroll must be \"bottom\", not %q", s.Scroll)
+	}
+	return nil
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
@@ -253,6 +311,14 @@ func (c *Config) validate() error {
 		errs = append(errs, fmt.Errorf("time_zone: %w", err))
 	}
 	c.Location = loc
+	if _, ok := UBlockModes[c.Chrome.UBlockMode]; c.Chrome.UBlockMode != "" && !ok {
+		errs = append(errs, fmt.Errorf("chrome.ublock_mode must be \"basic\", \"optimal\" or \"complete\", not %q", c.Chrome.UBlockMode))
+	}
+	for _, ext := range c.Chrome.Extensions {
+		if _, err := os.Stat(filepath.Join(ext, "manifest.json")); err != nil {
+			errs = append(errs, fmt.Errorf("chrome.extensions: %s is not an unpacked extension: %w", ext, err))
+		}
+	}
 	if len(c.Rivers) == 0 {
 		errs = append(errs, errors.New("at least one river is required"))
 	}
@@ -289,6 +355,11 @@ func (c *Config) validate() error {
 			default:
 				errs = append(errs, fmt.Errorf("feed %s: extractor must be %q or %q", f.URL, ExtractorMiniflux, ExtractorChrome))
 			}
+			for i, s := range f.Chrome.Steps {
+				if err := s.validate(); err != nil {
+					errs = append(errs, fmt.Errorf("feed %s: chrome.steps[%d]: %w", f.URL, i, err))
+				}
+			}
 		}
 	}
 	return errors.Join(errs...)
@@ -310,6 +381,18 @@ func (c *Config) River(slug string) *River {
 	for i := range c.Rivers {
 		if c.Rivers[i].Slug == slug {
 			return &c.Rivers[i]
+		}
+	}
+	return nil
+}
+
+// Feed returns the configured feed with the given URL.
+func (c *Config) Feed(feedURL string) *Feed {
+	for i := range c.Rivers {
+		for j := range c.Rivers[i].Feeds {
+			if c.Rivers[i].Feeds[j].URL == feedURL {
+				return &c.Rivers[i].Feeds[j]
+			}
 		}
 	}
 	return nil

@@ -23,12 +23,44 @@ let
     <pubDate>Mon, 05 Oct 2026 10:00:00 GMT</pubDate><description>Summary of ${marker}.</description></item>
     </channel></rss>
   '';
+  # An ad-supported page: a script from an ad server (uBO Lite blocks it), a
+  # box hidden by a generic cosmetic filter, and a paragraph that only appears
+  # once the bottom of the page scrolls into view.
+  adArticle = ''
+    <!doctype html><html><head><title>adarticle</title></head><body>
+    <article><h1>adarticle</h1>
+    <p>${lib.strings.replicate 6 para}</p>
+    <div id="AdBillboard">SPONSORED-BOX buy things now, this sponsored box has a lot of words in it.</div>
+    <p id="net">Ad script marker paragraph, still pending, with enough text to be kept as content.</p>
+    <script src="http://acdn.adnxs.com/ast/ast.js"
+      onload="document.getElementById('net').textContent = 'AD-SCRIPT-RAN the ad script loaded and ran, which it should not.'"
+      onerror="document.getElementById('net').textContent = 'AD-SCRIPT-BLOCKED the ad script was blocked from loading, as it should be.'"></script>
+    <p>${lib.strings.replicate 6 para}</p>
+    <div style="height: 4000px"></div>
+    <p id="sentinel">End of page paragraph with enough words in it to be kept by readability as content.</p>
+    </article>
+    <script>
+    new IntersectionObserver((entries, o) => {
+      if (entries.some(e => e.isIntersecting)) {
+        document.getElementById("sentinel").insertAdjacentHTML("afterend", "<p>LAZY-LOADED paragraph that appears once the end of the page is scrolled into view.</p>");
+        o.disconnect();
+      }
+    }).observe(document.getElementById("sentinel"));
+    </script>
+    </body></html>
+  '';
+  adServer = pkgs.runCommand "ad-server" { } ''
+    mkdir -p $out/ast
+    echo 'window.adScriptLoaded = true;' > $out/ast/ast.js
+  '';
   site = pkgs.runCommand "feed-site" { } ''
     mkdir $out
     cp ${pkgs.writeText "a" (feed "Chrome Feed" "chromearticle")} $out/chrome.xml
     cp ${pkgs.writeText "b" (feed "Miniflux Feed" "minifluxarticle")} $out/miniflux.xml
     cp ${pkgs.writeText "c" (article "chromearticle")} $out/chromearticle.html
     cp ${pkgs.writeText "d" (article "minifluxarticle")} $out/minifluxarticle.html
+    cp ${pkgs.writeText "e" (feed "Ad Feed" "adarticle")} $out/ads.xml
+    cp ${pkgs.writeText "f" adArticle} $out/adarticle.html
   '';
 in
 pkgs.testers.runNixOSTest {
@@ -38,11 +70,12 @@ pkgs.testers.runNixOSTest {
     virtualisation.memorySize = 3072;
     virtualisation.cores = 2;
     environment.systemPackages = [ pkgs.sqlite pkgs.jq ];
-    networking.hosts."127.0.0.1" = [ "feeds.test" ];
+    networking.hosts."127.0.0.1" = [ "feeds.test" "acdn.adnxs.com" ];
 
     services.nginx = {
       enable = true;
       virtualHosts."feeds.test".root = site;
+      virtualHosts."acdn.adnxs.com".root = adServer;
     };
 
     services.miniflux = {
@@ -69,6 +102,11 @@ pkgs.testers.runNixOSTest {
             feeds = [
               { url = "http://feeds.test/chrome.xml"; extractor = "chrome"; }
               { url = "http://feeds.test/miniflux.xml"; extractor = "miniflux"; }
+              {
+                url = "http://feeds.test/ads.xml";
+                extractor = "chrome";
+                chrome.steps = [ { scroll = "bottom"; } ];
+              }
             ];
           }
           { slug = "empty"; title = "Empty"; feeds = [ ]; }
@@ -112,10 +150,10 @@ pkgs.testers.runNixOSTest {
     )
     get = "curl -sf -H 'Cookie: literss_session=testtoken' http://127.0.0.1:8090"
 
-    with subtest("river lists entries from both feeds"):
+    with subtest("river lists entries from all feeds"):
       machine.wait_until_succeeds(
         "curl -sf -u admin:correct-horse -X PUT http://127.0.0.1:8080/v1/feeds/refresh; "
-        + get + "/ | grep -q chromearticle && " + get + "/ | grep -q minifluxarticle",
+        + get + "/ | grep -q chromearticle && " + get + "/ | grep -q minifluxarticle && " + get + "/ | grep -q adarticle",
         timeout=120,
       )
       river = machine.succeed(get + "/")
@@ -132,6 +170,14 @@ pkgs.testers.runNixOSTest {
       assert "Rendered by JavaScript" in page, page
       assert "Copyright" not in page
 
+    with subtest("uBlock Origin Lite blocks ads; steps scroll to the bottom"):
+      page = article("adarticle")
+      assert "AD-SCRIPT-BLOCKED" in page, page
+      assert "AD-SCRIPT-RAN" not in page, page
+      assert "SPONSORED-BOX" not in page, page
+      assert "LAZY-LOADED" in page, page
+      machine.succeed("journalctl -u literss | grep -q 'chromium started.*extensions=1 ublock_mode=complete'")
+
     with subtest("miniflux extractor"):
       page = article("minifluxarticle")
       assert "unique to this article" in page, page
@@ -140,6 +186,6 @@ pkgs.testers.runNixOSTest {
       machine.succeed("systemctl restart literss")
       machine.wait_until_succeeds("journalctl -u literss --since '-30s' | grep -q 'miniflux sync complete'", timeout=60)
       feeds = machine.succeed("curl -sf -H \"X-Auth-Token: $(cat /run/literss-token)\" http://127.0.0.1:8080/v1/feeds | jq length").strip()
-      assert feeds == "2", feeds
+      assert feeds == "3", feeds
   '';
 }

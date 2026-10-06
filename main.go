@@ -33,6 +33,8 @@ Commands:
   users              list users
   delete-user NAME   delete a user, their passkeys and sessions
   sync               reconcile configured rivers and feeds with Miniflux, then exit
+  extract FEED PAGE  render PAGE with the chrome settings of feed FEED and print
+                     the extracted HTML, without caching (for tuning steps)
 
 The config file defaults to $LITERSS_CONFIG, then ./config.toml.
 `)
@@ -115,6 +117,25 @@ func run(configPath string, args []string) error {
 			return errors.New("usage: literss delete-user NAME")
 		}
 		return st.DeleteUser(ctx, args[0])
+	case "extract":
+		if len(args) != 2 {
+			return errors.New("usage: literss extract FEED_URL PAGE_URL")
+		}
+		feed := cfg.Feed(args[0])
+		if feed == nil {
+			return fmt.Errorf("feed %s is not in the configuration", args[0])
+		}
+		ex, err := extract.New(cfg, st, nil, nil, filepath.Join(cfg.DataDir, "images"))
+		if err != nil {
+			return err
+		}
+		defer ex.Close()
+		out, err := ex.Preview(ctx, feed, args[1])
+		if err != nil {
+			return err
+		}
+		fmt.Println(out)
+		return nil
 	case "sync":
 		return miniflux.NewRegistry(cfg, miniflux.New(cfg.Miniflux.URL, cfg.Miniflux.Token)).Sync(ctx)
 	default:

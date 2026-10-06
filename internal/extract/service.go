@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -54,7 +55,7 @@ func New(cfg *config.Config, st *store.Store, mf *miniflux.Client, reg *miniflux
 	}
 	return &Service{
 		cfg: cfg, store: st, mf: mf, registry: reg,
-		chrome:   NewChrome(cfg.Chrome),
+		chrome:   NewChrome(cfg.Chrome, filepath.Join(cfg.DataDir, "chrome-extensions")),
 		Images:   images,
 		inflight: map[int64]*call{},
 	}, nil
@@ -102,22 +103,11 @@ func (s *Service) extract(ctx context.Context, e *miniflux.Entry, feed *config.F
 	var content string
 	switch feed.Extractor {
 	case config.ExtractorChrome:
-		finalURL, page, err := s.chrome.Render(ctx, e.URL, feed, feed.Cookies)
+		c, u, err := s.renderReadable(ctx, e.URL, feed)
 		if err != nil {
-			return nil, fmt.Errorf("rendering %s: %w", e.URL, err)
-		}
-		if u, err := url.Parse(finalURL); err == nil && u.Host != "" {
-			base = u
-		}
-		art, err := readability.FromReader(strings.NewReader(page), base)
-		if err != nil {
-			return nil, fmt.Errorf("readability %s: %w", e.URL, err)
-		}
-		var b strings.Builder
-		if err := art.RenderHTML(&b); err != nil {
 			return nil, err
 		}
-		content = b.String()
+		content, base = c, u
 	default:
 		c, err := s.mf.FetchContent(ctx, e.ID)
 		if err != nil {
@@ -250,4 +240,39 @@ func (s *Service) Prefetch(ctx context.Context) {
 		case <-time.After(interval):
 		}
 	}
+}
+
+// renderReadable renders a page in chromium and runs readability on it,
+// returning the article HTML and the page's final URL.
+func (s *Service) renderReadable(ctx context.Context, pageURL string, feed *config.Feed) (string, *url.URL, error) {
+	finalURL, page, err := s.chrome.Render(ctx, pageURL, feed, feed.Cookies)
+	if err != nil {
+		return "", nil, fmt.Errorf("rendering %s: %w", pageURL, err)
+	}
+	base, err := url.Parse(finalURL)
+	if err != nil || base.Host == "" {
+		base, _ = url.Parse(pageURL)
+	}
+	art, err := readability.FromReader(strings.NewReader(page), base)
+	if err != nil {
+		return "", nil, fmt.Errorf("readability %s: %w", pageURL, err)
+	}
+	var b strings.Builder
+	if err := art.RenderHTML(&b); err != nil {
+		return "", nil, err
+	}
+	return b.String(), base, nil
+}
+
+// Preview extracts a page with a chrome feed's settings without caching
+// anything, for tuning a feed's configuration.
+func (s *Service) Preview(ctx context.Context, feed *config.Feed, pageURL string) (string, error) {
+	if feed.Extractor != config.ExtractorChrome {
+		return "", fmt.Errorf("feed %s uses the %s extractor; previews only work for chrome feeds", feed.URL, feed.Extractor)
+	}
+	content, base, err := s.renderReadable(ctx, pageURL, feed)
+	if err != nil {
+		return "", err
+	}
+	return Clean(content, base, func(abs string) string { return abs }), nil
 }

@@ -37,7 +37,7 @@ title = "News"
   [[rivers.feeds]]
   url = "https://b.example/rss"
   extractor = "chrome"
-  chrome = { wait = "2s", wait_selector = "article" }
+  chrome = { steps = [{ wait_for = "article" }, { scroll = "bottom" }, { wait = "2s" }] }
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,8 @@ title = "News"
 	}
 	feeds := cfg.Rivers[0].Feeds
 	if len(feeds) != 2 || feeds[0].Extractor != ExtractorMiniflux || feeds[1].Extractor != ExtractorChrome ||
-		feeds[1].Chrome.Wait.Duration != 2*time.Second || feeds[1].Chrome.WaitSelector != "article" {
+		len(feeds[1].Chrome.Steps) != 3 || feeds[1].Chrome.Steps[0].WaitFor != "article" ||
+		feeds[1].Chrome.Steps[1].Scroll != "bottom" || feeds[1].Chrome.Steps[2].Wait.Duration != 2*time.Second {
 		t.Errorf("feeds = %+v", feeds)
 	}
 }
@@ -104,5 +105,36 @@ miniflux = { url = "http://mf", token = "x" }
 `))
 	if err == nil || !strings.Contains(err.Error(), "duration") {
 		t.Errorf("expected duration error, got %v", err)
+	}
+}
+
+func TestStepValidation(t *testing.T) {
+	_, err := Load(write(t, "c.toml", `
+base_url = "https://x"
+miniflux = { url = "http://mf", token = "x" }
+chrome = { extensions = ["/nonexistent"], ublock_mode = "max" }
+
+[[rivers]]
+slug = "r"
+title = "R"
+
+  [[rivers.feeds]]
+  url = "https://a.example/rss"
+  extractor = "chrome"
+  chrome = { steps = [{ scroll = "top" }, { click = "a", remove = "b" }, {}] }
+`))
+	if err == nil {
+		t.Fatal("expected errors")
+	}
+	for _, want := range []string{
+		`chrome.steps[0]: scroll must be "bottom"`,
+		"chrome.steps[1]: each step must set exactly one",
+		"chrome.steps[2]: each step must set exactly one",
+		"/nonexistent is not an unpacked extension",
+		`chrome.ublock_mode must be "basic", "optimal" or "complete", not "max"`,
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %q: %v", want, err)
+		}
 	}
 }
