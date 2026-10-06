@@ -1,0 +1,20 @@
+{{define "main"}}{{with .Data}}
+<h1 class="river-title">{{.River.Title}}</h1>
+{{if .NotReady}}
+<p>This river is still being set up. Try again in a moment.</p>
+{{else}}
+<ul class="river">
+  {{- range .Items}}
+  <li><a href="/a/{{.ID}}">{{.Title}}</a> <span class="meta">{{.Source}} · <time datetime="{{.Published.UTC.Format "2006-01-02T15:04:05Z"}}">{{when .Published}}</time></span></li>
+  {{- else}}
+  <li>Nothing here yet.</li>
+  {{- end}}
+</ul>
+{{if or .PrevHref .NextHref}}
+<nav class="pager">
+  {{if .PrevHref}}<a href="{{.PrevHref}}">← Newer</a>{{end}}
+  {{if .NextHref}}<a href="{{.NextHref}}">Older →</a>{{end}}
+</nav>
+{{end}}
+{{end}}
+{{end}}{{end}}

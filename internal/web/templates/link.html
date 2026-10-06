@@ -1,0 +1,14 @@
+{{define "main"}}{{with .Data}}
+<section class="narrow">
+  <h1>Create a passkey</h1>
+  <p>This link lets you create a passkey for <strong>{{.Name}}</strong> on this device. It works once.</p>
+  <form id="passkey-register" data-begin="/link/{{.Token}}/begin" data-finish="/link/{{.Token}}/finish">
+    <label for="name">Name for this passkey (optional)</label>
+    <input id="name" name="name" maxlength="64" placeholder="e.g. Phone" autocomplete="off">
+    <button type="submit">Create passkey</button>
+  </form>
+  <p class="error" id="error" hidden></p>
+  <noscript><p class="error">Creating a passkey requires JavaScript.</p></noscript>
+</section>
+<script src="{{asset "passkey.js"}}"></script>
+{{end}}{{end}}

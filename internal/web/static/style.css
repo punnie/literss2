@@ -1,0 +1,109 @@
+:root {
+  color-scheme: light dark;
+  --fg: #111;
+  --bg: #fff;
+  --muted: #767676;
+  --rule: #ddd;
+  --link: #0000ee;
+  --visited: #551a8b;
+  --error: #b00020;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e6e6e6;
+    --bg: #121212;
+    --muted: #8f8f8f;
+    --rule: #333;
+    --link: #8ab4f8;
+    --visited: #c58af9;
+    --error: #ff6b6b;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  padding: 0 16px 48px;
+  color: var(--fg);
+  background: var(--bg);
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  overflow-wrap: break-word;
+}
+
+a { color: var(--link); }
+a:visited { color: var(--visited); }
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+}
+header .brand { font-weight: bold; color: var(--fg); text-decoration: none; }
+header nav { display: flex; flex-wrap: wrap; gap: 4px 14px; flex: 1; }
+header nav a, header .account { color: var(--fg); }
+header nav a[aria-current="page"] { font-weight: bold; text-decoration: none; }
+header .account { font-size: 0.875rem; color: var(--muted); }
+
+h1 { font-size: 1.5rem; line-height: 1.25; margin: 20px 0 12px; }
+h2 { font-size: 1.125rem; margin: 28px 0 8px; }
+
+.meta { color: var(--muted); font-size: 0.875rem; white-space: nowrap; }
+
+/* River: a plain list of titles, like lite.cnn.com. */
+.river-title { font-size: 1.25rem; }
+.river { list-style: none; margin: 0; padding: 0; }
+.river li { margin: 0 0 10px; line-height: 1.35; }
+.river .meta { display: inline-block; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+
+.pager { display: flex; gap: 24px; margin: 24px 0; }
+
+/* Article: same font and left edge as the river, with a capped measure. */
+article, .narrow { max-width: 40rem; }
+article h1 { font-size: 1.75rem; margin-top: 24px; }
+article .meta { white-space: normal; margin: 0 0 24px; }
+.content { line-height: 1.6; }
+.content img, .content video { display: block; max-width: 100%; height: auto; margin: 16px 0; }
+.content figure { margin: 24px 0; }
+.content figcaption { font-size: 0.875rem; color: var(--muted); }
+.content pre { overflow-x: auto; font-size: 0.875rem; }
+.content blockquote { margin: 16px 0; padding-left: 16px; border-left: 3px solid var(--rule); }
+.content table { display: block; overflow-x: auto; border-collapse: collapse; }
+.content td, .content th { border: 1px solid var(--rule); padding: 4px 8px; }
+.notice { padding: 8px 12px; border: 1px solid var(--rule); font-size: 0.875rem; }
+
+/* Forms */
+label { display: block; margin: 12px 0 4px; font-size: 0.875rem; color: var(--muted); }
+input {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+button {
+  margin: 12px 0;
+  padding: 10px 16px;
+  font: inherit;
+  color: var(--bg);
+  background: var(--fg);
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.5; cursor: wait; }
+button.link { padding: 0; margin: 0; background: none; color: var(--link); text-decoration: underline; font-size: 0.875rem; }
+.error { color: var(--error); }
+.row { display: flex; flex-wrap: wrap; gap: 12px; }
+.passkeys { list-style: none; padding: 0; margin: 0; }
+.passkeys li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.passkeys .meta { display: block; white-space: normal; }
+.qr { width: 200px; height: 200px; image-rendering: pixelated; background: #fff; padding: 8px; }

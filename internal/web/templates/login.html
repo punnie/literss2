@@ -1,0 +1,12 @@
+{{define "main"}}
+<section class="narrow">
+  <h1>Sign in</h1>
+  <p>Use the passkey you created for this site.</p>
+  <form id="passkey-login" data-begin="/auth/login/begin" data-finish="/auth/login/finish">
+    <button type="submit">Sign in with a passkey</button>
+  </form>
+  <p class="error" id="error" hidden></p>
+  <noscript><p class="error">Signing in with a passkey requires JavaScript.</p></noscript>
+</section>
+<script src="{{asset "passkey.js"}}"></script>
+{{end}}

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>{{.Title}} · literss</title>
+<link rel="stylesheet" href="{{asset "style.css"}}">
+</head>
+<body>
+<header>
+  <a class="brand" href="/">literss</a>
+  {{- if .User}}
+  <nav>
+    {{- range .Rivers}}
+    <a href="{{.Href}}"{{if eq .Slug $.Current}} aria-current="page"{{end}}>{{.Title}}</a>
+    {{- end}}
+  </nav>
+  <a class="account" href="/account">{{.User.Name}}</a>
+  {{- end}}
+</header>
+<main>
+{{block "main" .}}{{end}}
+</main>
+</body>
+</html>

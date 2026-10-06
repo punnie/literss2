@@ -1,0 +1,66 @@
+# literss configuration. Durations are strings like "45s", "15m", "168h";
+# an empty string disables the interval it sets.
+
+listen = "127.0.0.1:8090"
+# Its host is the passkey relying party ID: changing it invalidates passkeys.
+base_url = "https://literss.ethereal.io"
+data_dir = "/var/lib/literss"
+time_zone = "Europe/Lisbon"
+items_per_page = 100
+session_ttl = "168h"         # sliding: extended on every use
+prefetch_interval = "15m"    # extract the newest entries ahead of time
+sync_interval = "1h"         # reconcile rivers/feeds with Miniflux
+
+[miniflux]
+url = "http://127.0.0.1:8080"
+token_file = "/run/secrets/literss-miniflux-token"   # or: token = "…"
+
+[chrome]
+path = "/run/current-system/sw/bin/chromium"
+timeout = "45s"
+max_concurrent = 2
+no_sandbox = false
+# user_agent = "…"
+
+# Rivers appear in this order; the first one is the home page.
+# Each river is a Miniflux category with the same title.
+
+[[rivers]]
+slug = "news"
+title = "News"
+
+  [[rivers.feeds]]
+  url = "https://feeds.arstechnica.com/arstechnica/index"
+  extractor = "miniflux"   # the default
+
+  # Every field below is pushed to the Miniflux feed: it applies to polling
+  # the feed and to Miniflux's fetch-content.
+  [[rivers.feeds]]
+  url = "https://example.com/feed.xml"
+  title = "Example"                       # overrides Miniflux's title
+  extractor = "miniflux"
+  scraper_rules = "article .body"
+  rewrite_rules = ""
+  user_agent = ""
+  # cookies_file = "/run/secrets/example-cookies.txt"
+  # username = "…"
+  # password_file = "/run/secrets/example-password"
+  # crawler = false
+  # blocklist_rules = ""
+  # keeplist_rules = ""
+
+[[rivers]]
+slug = "private"
+title = "Private"
+
+  [[rivers.feeds]]
+  url = "https://paywalled.example/rss"
+  extractor = "chrome"
+  # Netscape cookies.txt or a browser JSON export. Sent by Miniflux when
+  # polling and fetching, injected into Chromium, and used to cache images.
+  cookies_file = "/run/secrets/paywalled-cookies.txt"
+
+    [rivers.feeds.chrome]
+    wait_selector = "article"
+    wait = "1s"
+    # user_agent = "…"

@@ -1,0 +1,37 @@
+{{define "main"}}{{with .Data}}
+<section class="narrow">
+  <h1>Account</h1>
+
+  <h2>Passkeys</h2>
+  <ul class="passkeys">
+    {{- range .Passkeys}}
+    <li>
+      <span>{{.Name}} <span class="meta">added {{when .CreatedAt}}{{if .LastUsedAt}} · last used {{when .LastUsedAt}}{{end}}</span></span>
+      {{- if gt (len $.Data.Passkeys) 1}}
+      <form method="post" action="/account/passkeys/delete">
+        <input type="hidden" name="id" value="{{b64 .ID}}">
+        <button type="submit" class="link">Remove</button>
+      </form>
+      {{- end}}
+    </li>
+    {{- end}}
+  </ul>
+
+  <h2>Add another device</h2>
+  {{if .Link}}
+  <p>Open this link on the other device before {{when .LinkUntil}}. It can be used once.</p>
+  <p><input class="copy" readonly value="{{.Link}}" aria-label="Sign-in link"></p>
+  {{if .LinkQR}}<p><img class="qr" src="{{.LinkQR}}" alt="QR code of the sign-in link"></p>{{end}}
+  {{else}}
+  <p>Create a single-use link to set up a passkey on another device. It expires after 15 minutes.</p>
+  <form method="post" action="/account/link"><button type="submit">Create link</button></form>
+  {{end}}
+
+  <h2>Sessions</h2>
+  <p class="meta">Sessions expire after a week without use.</p>
+  <div class="row">
+    <form method="post" action="/logout"><button type="submit">Sign out</button></form>
+    <form method="post" action="/logout/all"><button type="submit">Sign out everywhere</button></form>
+  </div>
+</section>
+{{end}}{{end}}

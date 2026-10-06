@@ -1,0 +1,10 @@
+{{define "main"}}{{with .Data}}
+<article>
+  <h1>{{.Article.Title}}</h1>
+  <p class="meta">{{.Article.FeedTitle}} · <time datetime="{{.Article.PublishedAt.UTC.Format "2006-01-02T15:04:05Z"}}">{{when .Article.PublishedAt}}</time> · <a href="{{.Article.URL}}" rel="noopener noreferrer">Original</a></p>
+  {{if .Fallback}}<p class="notice">The full article could not be retrieved; showing the feed's summary.</p>{{end}}
+  <div class="content">
+{{.Content}}
+  </div>
+</article>
+{{end}}{{end}}
